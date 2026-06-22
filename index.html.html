@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>TraceRun</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+:root {
+  --bg:#0d0f14; --surf:#161820; --brd:#252830;
+  --acc:#c8f542; --txt:#e8eaf0; --mut:#6b7080;
+  --c0:#c8f542; --c1:#7ec8e3; --c2:#f5a442;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{
+  font-family:'Space Grotesk',sans-serif;
+  background:var(--bg);color:var(--txt);
+  display:flex;flex-direction:column;height:100dvh;
+}
+header{
+  background:var(--surf);border-bottom:1px solid var(--brd);
+  padding:12px 16px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;
+  -webkit-user-select:none;user-select:none;
+}
+.logo{font-family:'Space Mono',monospace;font-weight:700;font-size:17px;color:var(--acc);}
+.logo span{color:var(--txt);font-weight:400;}
+.sub{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:1.5px;margin-top:2px;}
+.controls{
+  background:var(--surf);border-bottom:1px solid var(--brd);
+  padding:10px 16px;display:flex;align-items:center;
+  gap:10px;flex-shrink:0;flex-wrap:wrap;
+}
+.dw{display:flex;align-items:center;gap:10px;flex:1;min-width:180px;}
+.dl{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
+.dv{font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--acc);min-width:64px;}
+input[type=range]{
+  flex:1;-webkit-appearance:none;appearance:none;
+  height:4px;background:var(--brd);border-radius:2px;outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:22px;height:22px;border-radius:50%;
+  background:var(--acc);cursor:pointer;
+  box-shadow:0 0 8px rgba(200,245,66,0.5);
+}
+.btn{
+  font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:13px;
+  padding:10px 18px;border:none;border-radius:10px;
+  cursor:pointer;transition:all 0.15s;
+  display:flex;align-items:center;gap:6px;
+  white-space:nowrap;-webkit-tap-highlight-color:transparent;
+}
+.blc{background:var(--brd);color:var(--txt);}
+.blc:active{opacity:0.7;}
+.bac{background:var(--acc);color:#0d0f14;}
+.bac:active{opacity:0.8;}
+.bac:disabled{background:var(--brd);color:var(--mut);cursor:not-allowed;}
+#map{flex:1;min-height:0;position:relative;}
+.leaflet-tile{filter:brightness(0.72) contrast(1.1);}
+.leaflet-container{background:#1a1c24 !important;}
+.ov{
+  position:absolute;inset:0;z-index:900;
+  display:flex;align-items:center;justify-content:center;
+}
+.ovc{
+  background:rgba(13,15,20,0.93);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--brd);border-radius:16px;
+  padding:26px 32px;text-align:center;min-width:220px;
+}
+.sp{
+  width:34px;height:34px;
+  border:3px solid var(--brd);border-top-color:var(--acc);
+  border-radius:50%;animation:spin .75s linear infinite;
+  margin:0 auto 14px;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.ot{font-weight:600;font-size:15px;margin-bottom:6px;}
+.os{font-size:13px;color:var(--mut);}
+.hint{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:400;pointer-events:none;
+  background:rgba(13,15,20,0.88);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--brd);border-radius:16px;
+  padding:22px 28px;text-align:center;
+}
+.hi{font-size:34px;margin-bottom:8px;}
+.ht{font-weight:600;font-size:15px;margin-bottom:5px;}
+.hs{font-size:13px;color:var(--mut);max-width:200px;}
+.bp{position:absolute;bottom:0;left:0;right:0;z-index:800;pointer-events:none;}
+.cr{
+  display:flex;gap:10px;padding:10px 14px 18px;
+  overflow-x:auto;pointer-events:all;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+.cr::-webkit-scrollbar{display:none;}
+.rc{
+  background:rgba(18,20,28,0.96);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:2px solid transparent;border-radius:14px;
+  padding:14px 16px;min-width:155px;flex-shrink:0;
+  cursor:pointer;transition:transform 0.2s;
+  -webkit-tap-highlight-color:transparent;
+}
+.rc:active{transform:scale(0.97);}
+.rc.s0{border-color:var(--c0);box-shadow:0 0 18px rgba(200,245,66,0.18);}
+.rc.s1{border-color:var(--c1);box-shadow:0 0 18px rgba(126,200,227,0.18);}
+.rc.s2{border-color:var(--c2);box-shadow:0 0 18px rgba(245,164,66,0.18);}
+.rh{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.rn{font-weight:600;font-size:13px;}
+.st{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;}
+.sl{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.8px;}
+.sv{font-family:'Space Mono',monospace;font-size:14px;font-weight:700;}
+.vb{
+  margin-top:9px;font-size:10px;padding:3px 8px;
+  border-radius:20px;background:var(--brd);color:var(--mut);
+  display:inline-block;text-transform:uppercase;letter-spacing:.8px;
+}
+.gb{
+  margin-top:9px;width:100%;font-size:11px;padding:7px 10px;
+  background:transparent;border:1px solid var(--brd);
+  border-radius:8px;color:var(--mut);cursor:pointer;
+  font-family:'Space Grotesk',sans-serif;font-weight:500;
+  -webkit-tap-highlight-color:transparent;
+}
+.gb:active{border-color:var(--acc);color:var(--acc);}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Trace<span>Run</span></div>
+    <div class="sub">Boucles fermées · Sans abonnement</div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="dw">
+    <div class="dl">Distance</div>
+    <div class="dv" id="dv">5 km</div>
+    <input type="range" id="sl" min="1" max="30" value="5" step="0.5"
+      oninput="const v=parseFloat(this.value);document.getElementById('dv').textContent=(v%1===0?v:v.toFixed(1))+' km'">
+  </div>
+  <button class="btn blc" onclick="locMe()">📍 Position</button>
+  <button class="btn bac" id="genBtn" disabled onclick="go()">⚡ Générer</button>
+</div>
+
+<div id="map">
+  <div class="hint" id="hint">
+    <div class="hi">🏃</div>
+    <div class="ht">Prêt à courir ?</div>
+    <div class="hs">Clique "Position" puis génère tes boucles</div>
+  </div>
+  <div class="ov" id="ov" style="display:none">
+    <div class="ovc">
+      <div class="sp"></div>
+      <div class="ot" id="ovt">Chargement</div>
+      <div class="os" id="ovs">Patiente…</div>
+    </div>
+  </div>
+  <div class="bp" id="bp" style="display:none">
+    <div class="cr" id="cr"></div>
+  </div>
+</div>
+
+<script>
+var map = L.map('map',{zoomControl:true,attributionControl:false}).setView([46.32,4.83],12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+
+var COLORS=['#c8f542','#7ec8e3','#f5a442'];
+var NAMES=['Parcours A','Parcours B','Parcours C'];
+var VIBES=['Vue large','Côté nature','Urbain'];
+var userPos=null,userMarker=null,layers=[],routes=[],selIdx=null;
+
+function showOv(t,s){
+  document.getElementById('ov').style.display='flex';
+  document.getElementById('ovt').textContent=t;
+  document.getElementById('ovs').textContent=s;
+}
+function hideOv(){document.getElementById('ov').style.display='none';}
+
+function locMe(){
+  document.getElementById('hint').style.display='none';
+  showOv('Localisation…','Récupération GPS en cours');
+  if(!navigator.geolocation){
+    hideOv();alert('Géolocalisation non disponible.');return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      userPos=[pos.coords.latitude,pos.coords.longitude];
+      placePin();hideOv();
+      document.getElementById('genBtn').disabled=false;
+    },
+    function(){
+      hideOv();
+      alert('GPS non disponible. Appuie sur la carte pour choisir ton départ.');
+      map.once('click',function(e){
+        userPos=[e.latlng.lat,e.latlng.lng];
+        placePin();
+        document.getElementById('genBtn').disabled=false;
+      });
+    },
+    {enableHighAccuracy:true,timeout:12000,maximumAge:0}
+  );
+}
+
+function placePin(){
+  if(userMarker) map.removeLayer(userMarker);
+  var icon=L.divIcon({
+    html:'<div style="width:16px;height:16px;border-radius:50%;background:#c8f542;border:3px solid #fff;box-shadow:0 0 12px rgba(200,245,66,0.7)"></div>',
+    iconSize:[16,16],iconAnchor:[8,8],className:''
+  });
+  userMarker=L.marker(userPos,{icon:icon}).addTo(map);
+  map.setView(userPos,15);
+}
+
+/* Build loop waypoints — always start AND end at userPos */
+function makeWPs(origin,distKm,angleDeg){
+  var lat=origin[0],lon=origin[1],R=6371;
+  var r=distKm/(2*Math.PI)*0.82;
+  var N=6,pts=[origin];
+  for(var i=0;i<N;i++){
+    var a=(360/N*i+angleDeg)*Math.PI/180;
+    var rr=r*(0.75+0.5*Math.abs(Math.sin(i*1.7)));
+    var dLat=rr/R*(180/Math.PI);
+    var dLon=rr/(R*Math.cos(lat*Math.PI/180))*(180/Math.PI);
+    pts.push([lat+dLat*Math.cos(a),lon+dLon*Math.sin(a)]);
+  }
+  pts.push(origin); // ← always closes at start
+  return pts;
+}
+
+function haversine(a,b){
+  var R=6371,d2r=Math.PI/180;
+  var dLat=(b[0]-a[0])*d2r,dLon=(b[1]-a[1])*d2r;
+  var x=Math.sin(dLat/2)*Math.sin(dLat/2)+
+        Math.cos(a[0]*d2r)*Math.cos(b[0]*d2r)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+
+function fallback(origin,distKm,angleDeg){
+  var pts=makeWPs(origin,distKm,angleDeg);
+  var d=0;
+  for(var i=1;i<pts.length;i++) d+=haversine(pts[i-1],pts[i]);
+  return {coords:pts,distance:d};
+}
+
+function fetchOSRM(wps){
+  var coords=wps.map(function(p){return p[1]+','+p[0];}).join(';');
+  var url='https://router.project-osrm.org/route/v1/foot/'+coords+'?overview=full&geometries=geojson&continue_straight=false';
+  return fetch(url).then(function(r){
+    if(!r.ok) throw new Error('osrm '+r.status);
+    return r.json();
+  }).then(function(d){
+    if(!d.routes||!d.routes.length) throw new Error('empty');
+    var geom=d.routes[0].geometry.coordinates.map(function(c){return[c[1],c[0]];});
+    // Force close: last point = first point (= userPos)
+    geom.push(geom[0]);
+    return {coords:geom,distance:d.routes[0].distance/1000};
+  });
+}
+
+function go(){
+  if(!userPos) return;
+  layers.forEach(function(l){map.removeLayer(l);});
+  layers=[];routes=[];selIdx=null;
+  document.getElementById('bp').style.display='none';
+  document.getElementById('cr').innerHTML='';
+
+  var distKm=parseFloat(document.getElementById('sl').value);
+  var angles=[30,150,270];
+  showOv('Calcul des parcours…','Génération de 3 boucles fermées');
+
+  var idx=0;
+  function next(){
+    if(idx>=3){hideOv();drawAll();buildCards();select(0);return;}
+    var i=idx; idx++;
+    document.getElementById('ovs').textContent='Parcours '+(i+1)+'/3…';
+    var wps=makeWPs(userPos,distKm,angles[i]);
+    fetchOSRM(wps).then(function(r){
+      routes.push(r);next();
+    }).catch(function(){
+      routes.push(fallback(userPos,distKm,angles[i]));next();
+    });
+  }
+  next();
+}
+
+function drawAll(){
+  routes.forEach(function(r,i){
+    var l=L.polyline(r.coords,{
+      color:COLORS[i],weight:4,opacity:0.5,
+      lineJoin:'round',lineCap:'round'
+    }).addTo(map);
+    (function(ii){l.on('click',function(){select(ii);});})(i);
+    layers.push(l);
+  });
+  var all=routes.reduce(function(acc,r){return acc.concat(r.coords);},[]);
+  map.fitBounds(L.latLngBounds(all),{padding:[50,50]});
+}
+
+function select(idx){
+  selIdx=idx;
+  layers.forEach(function(l,i){
+    l.setStyle({weight:i===idx?6:3,opacity:i===idx?1:0.3});
+    if(i===idx) l.bringToFront();
+  });
+  document.querySelectorAll('.rc').forEach(function(c,i){
+    c.className='rc'+(i===idx?' s'+i:'');
+  });
+}
+
+function buildCards(){
+  var cr=document.getElementById('cr');
+  cr.innerHTML='';
+  routes.forEach(function(r,i){
+    var mins=Math.round(r.distance/9*60);
+    var c=document.createElement('div');
+    c.className='rc';
+    c.innerHTML=
+      '<div class="rh"><div class="dot" style="background:'+COLORS[i]+'"></div>'
+      +'<div class="rn">'+NAMES[i]+'</div></div>'
+      +'<div class="st"><span class="sl">Distance</span><span class="sv">'+r.distance.toFixed(1)+' km</span></div>'
+      +'<div class="st"><span class="sl">Durée est.</span><span class="sv">'+mins+' min</span></div>'
+      +'<div class="vb">'+VIBES[i]+'</div>'
+      +'<button class="gb" data-i="'+i+'">⬇ Export GPX</button>';
+    (function(ii){
+      c.addEventListener('click',function(e){
+        if(e.target.classList.contains('gb')){exportGPX(parseInt(e.target.getAttribute('data-i')));return;}
+        select(ii);
+      });
+    })(i);
+    cr.appendChild(c);
+  });
+  document.getElementById('bp').style.display='';
+}
+
+function exportGPX(idx){
+  var r=routes[idx];
+  if(!r) return;
+  var pts=r.coords.map(function(p){
+    return '    <trkpt lat="'+p[0].toFixed(6)+'" lon="'+p[1].toFixed(6)+'"></trkpt>';
+  }).join('\n');
+  var gpx='<?xml version="1.0" encoding="UTF-8"?>\n'
+    +'<gpx version="1.1" creator="TraceRun">\n'
+    +'  <trk><name>'+NAMES[idx]+' '+r.distance.toFixed(1)+'km</name>\n'
+    +'  <trkseg>\n'+pts+'\n  </trkseg></trk>\n</gpx>';
+  var a=document.createElement('a');
+  a.href='data:application/gpx+xml;charset=utf-8,'+encodeURIComponent(gpx);
+  a.download='tracerun_'+NAMES[idx].replace(' ','_')+'.gpx';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+</script>
+</body>
+</html>
